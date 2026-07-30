@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - <%= guild.name %>
+    </title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+</head>
+
+<body class="dashboard-body">
+    <div class="glass-bg"></div>
+
+    <div class="dashboard-wrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="<%= guild.iconURL({ dynamic: true }) || 'https://cdn.discordapp.com/embed/avatars/0.png' %>"
+                    alt="Guild Icon">
+                <h3>
+                    <%= guild.name %>
+                </h3>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#core" class="active"><i class="fas fa-home"></i> <span>Core System</span></a>
+                <a href="#welcome"><i class="fas fa-bullhorn"></i> <span>Join & Leave</span></a>
+                <a href="#moderation"><i class="fas fa-hammer"></i> <span>Moderation</span></a>
+                <a href="#administration"><i class="fas fa-user-tie"></i> <span>Administration</span></a>
+                <a href="#staff"><i class="fas fa-user-shield"></i> <span>Staff & Perms</span></a>
+                <a href="#ranks"><i class="fas fa-crown"></i> <span>HUNTERS Ranks</span></a>
+                <a href="#emojis"><i class="fas fa-smile"></i> <span>Visuals (Emojis)</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="/"><i class="fas fa-chevron-left"></i> <span>Back to Servers</span></a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+            <header class="content-header">
+                <div class="header-info">
+                    <h1>Blood Intelligence</h1>
+                    <p>Total control over server operations and intelligence logging.</p>
+                </div>
+                <div class="header-actions">
+                    <button type="submit" form="settings-form" class="btn-save">💾 DEPLOY ALL SETTINGS</button>
+                </div>
+            </header>
+
+            <% if (locals.success) { %>
+                <div class="alert success">✅ All intelligence modules updated successfully!</div>
+                <% } %>
+
+                    <form id="settings-form" action="/settings/<%= guild.id %>" method="POST">
+
+                        <!-- Helper for Dropdowns -->
+                        <% const chOpt=(current)=> {
+                            let html = '<option value="">-- NO CHANNEL SELECTED --</option>';
+                            channels.forEach(ch => {
+                            html += `<option value="${ch.id}" ${current===ch.id ? 'selected' : '' }># ${ch.name}
+                            </option>`;
+                            });
+                            return html;
+                            };
+
+                            const rlOpt = (current) => {
+                            let html = '<option value="">-- NO ROLE SELECTED --</option>';
+                            roles.forEach(r => {
+                            html += `<option value="${r.id}" ${current===r.id ? 'selected' : '' }>@ ${r.name}</option>`;
+                            });
+                            return html;
+                            };
+
+                            const multiRlOpt = (currentArr) => {
+                            let html = '';
+                            const arr = Array.isArray(currentArr) ? currentArr : (currentArr ? [currentArr] : []);
+                            roles.forEach(r => {
+                            html += `<option value="${r.id}" ${arr.includes(r.id) ? 'selected' : '' }>@ ${r.name}
+                            </option>`;
+                            });
+                            return html;
+                            };
+
+                            const safeJoin = (val) => {
+                            if (Array.isArray(val)) return val.join(', ');
+                            return val || '';
+                            };
+                            %>
+
+                            <!-- 🔗 CORE SYSTEM CHANNELS -->
+                            <section id="core" class="settings-section">
+                                <div class="section-card">
+                                    <h2><i class="fas fa-link"></i> Core System Channels</h2>
+                                    <div class="input-grid">
+                                        <div class="input-group">
+                                            <label>Main Logic Log</label>
+                                            <select name="LOG_CHANNEL_ID"><%- chOpt(config.LOG_CHANNEL_ID) %></select>
+                                            <p class="hint">Global system activity feed</p>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Interaction Log</label>
+                                            <select name="INTERACTION_LOG_CHANNEL_ID"><%-
+                                                    chOpt(config.INTERACTION_LOG_CHANNEL_ID) %></select>
+                                            <p class="hint">Buttons and menu interaction logs</p>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>DM Failure Log</label>
+                                            <select name="DM_FAIL_LOG_CHANNEL_ID"><%-
+                                                    chOpt(config.DM_FAIL_LOG_CHANNEL_ID) %></select>
+                                            <p class="hint">Alerts when bot cannot DM a user</p>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Invite Log Channel</label>
+                                            <select name="INVITE_LOG_CHANNEL_ID"><%- chOpt(config.INVITE_LOG_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Rules Channel</label>
+                                            <select name="SERVER_RULES_CHANNEL_ID"><%-
+                                                    chOpt(config.SERVER_RULES_CHANNEL_ID) %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>About Us Channel</label>
+                                            <select name="ABOUT_US_CHANNEL_ID"><%- chOpt(config.ABOUT_US_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- 🎉 JOIN & LEAVE CONTROL -->
+                            <section id="welcome" class="settings-section">
+                                <div class="section-card">
+                                    <h2><i class="fas fa-bullhorn"></i> Join & Leave Intelligence</h2>
+                                    <div class="input-grid">
+                                        <div class="input-group">
+                                            <label>Welcome Feed</label>
+                                            <select name="WELCOME_CHANNEL_ID"><%- chOpt(config.WELCOME_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Departure Feed</label>
+                                            <select name="LEAVE_CHANNEL_ID"><%- chOpt(config.LEAVE_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                    </div>
+                                    <div class="divider"></div>
+                                    <div class="input-group full-width">
+                                        <label>Welcome Transmission</label>
+                                        <textarea name="WELCOME_MESSAGE" rows="3"
+                                            placeholder="Enter custom message..."><%= config.WELCOME_MESSAGE %></textarea>
+                                        <p class="hint">Tags: {user}, {guild}, {rules}</p>
+                                    </div>
+                                    <div class="input-group full-width">
+                                        <label>Welcome Animation (GIF URL)</label>
+                                        <input type="text" name="WELCOME_GIF" value="<%= config.WELCOME_GIF %>">
+                                    </div>
+                                    <div class="divider"></div>
+                                    <div class="input-group full-width">
+                                        <label>Departure Transmission</label>
+                                        <textarea name="LEAVE_MESSAGE" rows="3"><%= config.LEAVE_MESSAGE %></textarea>
+                                    </div>
+                                    <div class="input-group full-width">
+                                        <label>Departure Animation (GIF URL)</label>
+                                        <input type="text" name="LEAVE_GIF" value="<%= config.LEAVE_GIF %>">
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- 🔨 MODERATION INTELLIGENCE -->
+                            <section id="moderation" class="settings-section">
+                                <div class="section-card">
+                                    <h2><i class="fas fa-hammer"></i> Moderation Intelligence</h2>
+                                    <div class="input-grid">
+                                        <div class="input-group">
+                                            <label>Ban Protocol Log</label>
+                                            <select name="BAN_CHANNEL_ID"><%- chOpt(config.BAN_CHANNEL_ID) %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Unban Protocol Log</label>
+                                            <select name="UNBAN_CHANNEL_ID"><%- chOpt(config.UNBAN_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Kick Protocol Log</label>
+                                            <select name="KICK_LOG_CHANNEL_ID"><%- chOpt(config.KICK_LOG_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Mute/Timeout Log</label>
+                                            <select name="MUTE_LOG_CHANNEL_ID"><%- chOpt(config.MUTE_LOG_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Unmute Log</label>
+                                            <select name="UNMUTE_LOG_CHANNEL_ID"><%- chOpt(config.UNMUTE_LOG_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Violation Log (Warn)</label>
+                                            <select name="WARN_LOG_CHANNEL_ID"><%- chOpt(config.WARN_LOG_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Cleared Violations Log</label>
+                                            <select name="CLEARWARN_LOG_CHANNEL_ID"><%-
+                                                    chOpt(config.CLEARWARN_LOG_CHANNEL_ID) %></select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- 👔 ADMINISTRATION MODULE -->
+                            <section id="administration" class="settings-section">
+                                <div class="section-card">
+                                    <h2><i class="fas fa-user-tie"></i> HUNTERS Administration</h2>
+                                    <div class="input-grid">
+                                        <div class="input-group">
+                                            <label>Discharge Feed</label>
+                                            <select name="DISCHARGE_CHANNEL_ID"><%- chOpt(config.DISCHARGE_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Promotion Feed</label>
+                                            <select name="PROMOTION_CHANNEL_ID"><%- chOpt(config.PROMOTION_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Demotion Feed</label>
+                                            <select name="DEMOTION_CHANNEL_ID"><%- chOpt(config.DEMOTION_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Member Analytics (Chart)</label>
+                                            <select name="MEMBER_CHART_CHANNEL_ID"><%-
+                                                    chOpt(config.MEMBER_CHART_CHANNEL_ID) %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Heist Log (Situation)</label>
+                                            <select name="SITUATION_LOG_CHANNEL_ID"><%-
+                                                    chOpt(config.SITUATION_LOG_CHANNEL_ID) %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>HUNTERS Fund Log</label>
+                                            <select name="GANG_FUND_CHANNEL_ID"><%- chOpt(config.GANG_FUND_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                    </div>
+                                    <div class="divider"></div>
+                                    <div class="input-grid">
+                                        <div class="input-group">
+                                            <label>LOA Request Feed</label>
+                                            <select name="FIXED_LOA_CHANNEL_ID"><%- chOpt(config.FIXED_LOA_CHANNEL_ID)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>LOA Completion Feed</label>
+                                            <select name="FIXED_END_LOA_CHANNEL_ID"><%-
+                                                    chOpt(config.FIXED_END_LOA_CHANNEL_ID) %></select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- 🎭 STAFF & PERMISSION ACCESS -->
+                            <section id="staff" class="settings-section">
+                                <div class="section-card">
+                                    <h2><i class="fas fa-user-shield"></i> Access Control (Roles)</h2>
+                                    <div class="input-grid">
+                                        <div class="input-group">
+                                            <label>Auto Rank (Join)</label>
+                                            <select name="AUTO_ROLE_ID"><%- rlOpt(config.AUTO_ROLE_ID) %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Super Admin (Khomota)</label>
+                                            <select name="KHOMOTA_ROLE_ID"><%- rlOpt(config.KHOMOTA_ROLE_ID) %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Access to HUNTERS</label>
+                                            <select name="GANG_ACCESS_ROLE_ID"><%- rlOpt(config.GANG_ACCESS_ROLE_ID)
+                                                    %></select>
+                                        </div>
+                                    </div>
+                                    <div class="divider"></div>
+                                    <p class="hint" style="margin-bottom: 1rem;">Note: For multi-select fields, use the
+                                        text inputs below (Comma separated IDs)</p>
+                                    <div class="input-grid">
+                                        <div class="input-group">
+                                            <label>Moderator Roles</label>
+                                            <select class="multi-select" name="MOD_ROLE_IDS" multiple="multiple"><%-
+                                                    multiRlOpt(config.MOD_ROLE_IDS) %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Allowed LOA Roles</label>
+                                            <select class="multi-select" name="ALLOWED_LOA_ROLE" multiple="multiple"><%-
+                                                    multiRlOpt(config.ALLOWED_LOA_ROLE) %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>LOA Approval Roles</label>
+                                            <select class="multi-select" name="ALLOWED_APPROVE_ROLES"
+                                                multiple="multiple"><%- multiRlOpt(config.ALLOWED_APPROVE_ROLES)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Interaction Command Perms</label>
+                                            <select class="multi-select" name="ALLOWED_INTERACTION_ROLE"
+                                                multiple="multiple"><%- multiRlOpt(config.ALLOWED_INTERACTION_ROLE)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Fund Access Roles</label>
+                                            <select class="multi-select" name="ALLOWED_GANGFUND_ROLE"
+                                                multiple="multiple"><%- multiRlOpt(config.ALLOWED_GANGFUND_ROLE)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>End LOA Roles</label>
+                                            <select class="multi-select" name="ALLOWED_END_LOA_ROLE"
+                                                multiple="multiple"><%- multiRlOpt(config.ALLOWED_END_LOA_ROLE)
+                                                    %></select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Discharged Role</label>
+                                            <select name="DISCHARGED_ROLE_ID"><%-
+                                                    rlOpt(Array.isArray(config.DISCHARGED_ROLE_ID) ?
+                                                    config.DISCHARGED_ROLE_ID[0] : config.DISCHARGED_ROLE_ID)
+                                                    %></select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- 🔱 HUNTERS HIERARCHY -->
+                            <section id="ranks" class="settings-section">
+                                <div class="section-card">
+                                    <h2><i class="fas fa-crown"></i> HUNTERS Ranks</h2>
+                                    <div class="input-grid">
+                                        <div class="input-group"><label>Recruit</label><select
+                                                name="RANK_RECRUIT_ROLE_ID"><%- rlOpt(config.RANK_RECRUIT_ROLE_ID)
+                                                    %></select></div>
+                                        <div class="input-group"><label>First Division</label><select
+                                                name="RANK_FIRST_DIVISION_ROLE_ID"><%-
+                                                    rlOpt(config.RANK_FIRST_DIVISION_ROLE_ID) %></select></div>
+                                        <div class="input-group"><label>Second Division</label><select
+                                                name="RANK_SECOND_DIVISION_ROLE_ID"><%-
+                                                    rlOpt(config.RANK_SECOND_DIVISION_ROLE_ID) %></select></div>
+                                        <div class="input-group"><label>Third Division</label><select
+                                                name="RANK_THIRD_DIVISION_ROLE_ID"><%-
+                                                    rlOpt(config.RANK_THIRD_DIVISION_ROLE_ID) %></select></div>
+                                        <div class="input-group"><label>High Command</label><select
+                                                name="RANK_HIGH_COMMAND_ROLE_ID"><%-
+                                                    rlOpt(config.RANK_HIGH_COMMAND_ROLE_ID) %></select></div>
+                                        <div class="input-group"><label>Co-Leader</label><select
+                                                name="RANK_CO_LEADER_ROLE_ID"><%- rlOpt(config.RANK_CO_LEADER_ROLE_ID)
+                                                    %></select></div>
+                                        <div class="input-group"><label>Mafia Boss</label><select
+                                                name="RANK_MAFIA_ROLE_ID"><%- rlOpt(config.RANK_MAFIA_ROLE_ID)
+                                                    %></select></div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- ✨ VISUAL INTELLIGENCE (EMOJIS) -->
+                            <section id="emojis" class="settings-section">
+                                <div class="section-card">
+                                    <h2><i class="fas fa-smile"></i> Custom Visual Intelligence</h2>
+                                    <div class="input-grid">
+                                        <div class="input-group"><label>Arrow Emoji ID</label><input type="text"
+                                                name="EMOJI_ARROW_ID" value="<%= config.EMOJI_ARROW_ID %>"></div>
+                                        <div class="input-group"><label>Alert Emoji ID</label><input type="text"
+                                                name="EMOJI_ALERT_ID" value="<%= config.EMOJI_ALERT_ID %>"></div>
+                                        <div class="input-group"><label>Red Crown ID</label><input type="text"
+                                                name="EMOJI_REDCROWNFIRE_ID"
+                                                value="<%= config.EMOJI_REDCROWNFIRE_ID %>"></div>
+                                        <div class="input-group"><label>Pink Quartz ID</label><input type="text"
+                                                name="EMOJI_PINKQUARTZ_ID" value="<%= config.EMOJI_PINKQUARTZ_ID %>">
+                                        </div>
+                                        <div class="input-group"><label>Diablo ID</label><input type="text"
+                                                name="EMOJI_DIABLO_ID" value="<%= config.EMOJI_DIABLO_ID %>"></div>
+                                        <div class="input-group"><label>Skull ID</label><input type="text"
+                                                name="EMOJI_FLASHINGSKULL_ID"
+                                                value="<%= config.EMOJI_FLASHINGSKULL_ID %>"></div>
+                                        <div class="input-group"><label>Mythril ID</label><input type="text"
+                                                name="EMOJI_TEAMMYTHRIL_ID" value="<%= config.EMOJI_TEAMMYTHRIL_ID %>">
+                                        </div>
+                                        <div class="input-group"><label>Collector ID</label><input type="text"
+                                                name="EMOJI_WORLDCOLLECTOR_ID"
+                                                value="<%= config.EMOJI_WORLDCOLLECTOR_ID %>"></div>
+                                        <div class="input-group"><label>Recruit Emoji ID</label><input type="text"
+                                                name="EMOJI_RECRUITRANK_ID" value="<%= config.EMOJI_RECRUITRANK_ID %>">
+                                        </div>
+                                        <div class="input-group"><label>Rank Up ID</label><input type="text"
+                                                name="EMOJI_RANKUP_ID" value="<%= config.EMOJI_RANKUP_ID %>"></div>
+                                        <div class="input-group"><label>Rank Down ID</label><input type="text"
+                                                name="EMOJI_RANKDOWN_ID" value="<%= config.EMOJI_RANKDOWN_ID %>"></div>
+                                        <div class="input-group"><label>Rainbow ID</label><input type="text"
+                                                name="EMOJI_RAINBOW_ID" value="<%= config.EMOJI_RAINBOW_ID %>"></div>
+                                        <div class="input-group"><label>Siren ID</label><input type="text"
+                                                name="EMOJI_BLUESIREN_ID" value="<%= config.EMOJI_BLUESIREN_ID %>">
+                                        </div>
+                                        <div class="input-group"><label>Divider 1 ID</label><input type="text"
+                                                name="EMOJI_DIVIDER1_ID" value="<%= config.EMOJI_DIVIDER1_ID %>"></div>
+                                        <div class="input-group"><label>Divider 2 ID</label><input type="text"
+                                                name="EMOJI_DIVIDER2_ID" value="<%= config.EMOJI_DIVIDER2_ID %>"></div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div class="form-footer-sticky">
+                                <button type="submit">🚀 DEPLOY FULL SYSTEM UPDATE</button>
+                            </div>
+                    </form>
+        </main>
+    </div>
+
+    <script>
+        // Sidebar tracking logic
+        const sections = document.querySelectorAll('.settings-section');
+        const navLinks = document.querySelectorAll('.sidebar-nav a');
+
+        window.addEventListener('scroll', () => {
+            let current = "";
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (window.scrollY >= sectionTop - 150) current = section.getAttribute('id');
+            });
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (current && link.getAttribute('href').includes(current)) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // Initialize sidebar active state on page load
+        window.dispatchEvent(new Event('scroll'));
+
+        // Initialize Select2
+        $(document).ready(function () {
+            $('.multi-select').select2({
+                placeholder: "Select roles...",
+                allowClear: true,
+                width: '100%'
+            });
+        });
+    </script>
+</body>
+
+</html>
