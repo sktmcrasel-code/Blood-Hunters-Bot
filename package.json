@@ -1,0 +1,23 @@
+{
+  "name": "BH | STATUS",
+  "version": "1.0.0",
+  "description": "Chronicles Mafia Discord Welcome & Leave Bot with Auto Role",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "CMF Community",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.6.1",
+    "ejs": "^5.0.2",
+    "express": "^5.2.1",
+    "mongoose": "^9.6.1",
+    "nedb-promises": "^6.2.3",
+    "node-cron": "^4.2.1"
+  },
+  "keywords": [],
+  "type": "commonjs"
+}
