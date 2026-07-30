@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const playtimeDb = require('../utils/playtimeDb');
+const db = require('../utils/db');
 const { activeSessions } = require('../utils/playtimeTracker');
 const timeHelpers = require('../utils/timeHelpers');
 
@@ -24,12 +25,22 @@ module.exports = {
 
             const timeframe = interaction.options.getString('timeframe') || 'weekly';
 
+            // Fetch guild config for tracked members
+            const config = await db.findOne({ guildId: interaction.guild.id });
+            const trackedMembers = config?.PLAYTIME_TRACKED_MEMBERS || [];
+
+            if (trackedMembers.length === 0) {
+                return interaction.editReply({ content: 'No members are currently being tracked for playtime.' });
+            }
+
             // Fetch all records for this guild
             let records = await playtimeDb.find({ guildId: interaction.guild.id });
             const now = new Date();
             
             // Map records and include active session time if applicable
-            let leaderboardData = records.map(record => {
+            let leaderboardData = records
+                .filter(record => trackedMembers.includes(record.userId))
+                .map(record => {
                 let val = 0;
                 const last = new Date(record.lastUpdated || 0);
                 
@@ -50,7 +61,7 @@ module.exports = {
 
             // Also add users who only have an active session (no DB record yet)
             for (const [userId, session] of activeSessions.entries()) {
-                if (session.guildId === interaction.guild.id) {
+                if (session.guildId === interaction.guild.id && trackedMembers.includes(userId)) {
                     if (!leaderboardData.find(r => r.userId === userId)) {
                         leaderboardData.push({
                             userId: userId,
