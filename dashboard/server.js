@@ -52,7 +52,10 @@ module.exports = (client) => {
             .map(r => ({ id: r.id, name: r.name }))
             .sort((a, b) => a.name.localeCompare(b.name));
 
-        res.render('settings', { guild, config, channels, roles });
+        const success = req.query.success === 'true';
+        const error = req.query.error === 'true';
+
+        res.render('settings', { guild, config, channels, roles, success, error });
     });
 
     // Save Settings
@@ -89,7 +92,19 @@ module.exports = (client) => {
         }
     });
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
         console.log(`🌐 Dashboard is live at http://localhost:${PORT}`);
+    });
+
+    server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            console.error(`-----------------------------------------------------------------`);
+            console.error(`❌ PORT ${PORT} IS ALREADY IN USE!`);
+            console.error(`👉 The website dashboard could not start because another app is using port ${PORT}.`);
+            console.error(`👉 You can configure a different port by adding DASHBOARD_PORT=3001 (or any other number) to your .env file.`);
+            console.error(`-----------------------------------------------------------------`);
+        } else {
+            console.error(`❌ Dashboard failed to start:`, err.message);
+        }
     });
 };
