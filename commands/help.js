@@ -5,7 +5,7 @@ const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID; // Log Channel ID
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("help")
-    .setDescription("📖 Shows all available commands"),
+    .setDescription("Shows all available FiveM Playtime Tracker commands."),
 
   async execute(interaction) {
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.KickMembers);
@@ -18,6 +18,20 @@ module.exports = {
       .setDescription("✨ Here are the available commands, categorized by roles:")
       .setThumbnail(interaction.client.user.displayAvatarURL())
       .setTimestamp();
+
+    // 🎮 Playtime Commands
+    helpEmbed.addFields({
+      name: "🎮 **FiveM Playtime Tracker Commands**",
+      value: [
+        "⏱️ **/playtime** → Complete FiveM playtime report (Today, Week, Month, Lifetime)",
+        "📅 **/today** → Shows how long you've played FiveM today",
+        "🗓️ **/week** → Shows how long you've played FiveM over the last 7 days",
+        "📊 **/month** → Shows how long you've played FiveM over the last 30 days",
+        "🏆 **/leaderboard** → Shows top 10 FiveM players by playtime",
+        "🔗 **/linkname** → Link your FiveM in-game name",
+        "📢 **/playtime-announce** → (Admin) Post Top 5 Champions Announcement Embed"
+      ].join("\n")
+    });
 
     // 👥 Normal User Commands
     helpEmbed.addFields({

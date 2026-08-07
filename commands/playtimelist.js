@@ -15,27 +15,56 @@ module.exports = {
                         .setDescription('The channel to post the live list in')
                         .addChannelTypes(ChannelType.GuildText)
                         .setRequired(true))
+                .addStringOption(option =>
+                    option.setName('code')
+                        .setDescription('The CFX code of the server (e.g. qplrv9)')
+                        .setRequired(true)
+                        .setAutocomplete(true))
         )
         .addSubcommand(subcommand =>
-            subcommand.setName('add')
-                .setDescription('Add a member to the tracking list')
-                .addUserOption(option => 
-                    option.setName('user')
-                        .setDescription('The user to track')
-                        .setRequired(true))
-        )
-        .addSubcommand(subcommand =>
-            subcommand.setName('remove')
-                .setDescription('Remove a member from the tracking list')
-                .addUserOption(option => 
-                    option.setName('user')
-                        .setDescription('The user to remove')
-                        .setRequired(true))
+            subcommand.setName('role')
+                .setDescription('Manage role-based auto-tracking')
+                .addStringOption(option =>
+                    option.setName('action')
+                        .setDescription('Action (set, remove)')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: 'Set Role', value: 'set' },
+                            { name: 'Remove Role', value: 'remove' }
+                        ))
+                .addRoleOption(option =>
+                    option.setName('role')
+                        .setDescription('The role to track (required if setting)')
+                        .setRequired(false))
         )
         .addSubcommand(subcommand =>
             subcommand.setName('update')
                 .setDescription('Manually force the list to update right now')
         ),
+    
+    async autocomplete(interaction) {
+        try {
+            const focusedValue = interaction.options.getFocused().toLowerCase();
+            const config = await db.findOne({ guildId: interaction.guild.id }) || {};
+            let servers = config.CFX_SERVERS || [];
+            if (config.CFX_CODE && servers.length === 0) servers = [config.CFX_CODE];
+            const serverNames = config.CFX_SERVER_NAMES || {};
+
+            const filtered = servers.filter(choice => 
+                choice.toLowerCase().includes(focusedValue) || 
+                (serverNames[choice] && serverNames[choice].toLowerCase().includes(focusedValue))
+            );
+            await interaction.respond(
+                filtered.map(choice => {
+                    const displayName = serverNames[choice] ? `${serverNames[choice]} (${choice})` : choice;
+                    return { name: displayName.substring(0, 100), value: choice };
+                })
+            );
+        } catch (e) {
+            if (e.code === 40060 || e.code === 10062) return;
+            console.error("PlaytimeList autocomplete error:", e);
+        }
+    },
     
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
@@ -48,67 +77,97 @@ module.exports = {
 
         if (sub === 'setup') {
             const channel = interaction.options.getChannel('channel');
+            let code = interaction.options.getString('code').trim();
+
+            if (code.includes('/')) {
+                const parts = code.split('/');
+                code = parts[parts.length - 1];
+            }
+
+            // Check if server is in tracked list
+            let servers = config.CFX_SERVERS || [];
+            if (config.CFX_CODE && servers.length === 0) servers = [config.CFX_CODE];
+
+            if (!servers.includes(code)) {
+                return interaction.editReply(`❌ The server code **${code}** is not in your tracking list. Please add it first using \`/setcfx add\`.`);
+            }
 
             const embed = new EmbedBuilder()
                 .setColor('#2b2d31')
-                .setTitle(`⏱️ Live Playtime Tracking List`)
+                .setTitle(`⏱️ Live Playtime Tracking List — ${code}`)
                 .setDescription("Initializing list... Please add members and wait for the next update cycle.")
-                .setFooter({ text: `Auto-updates every 30 mins` });
+                .setFooter({ text: `Auto-updates every 30s` });
 
             const msg = await channel.send({ embeds: [embed] });
 
+            let lists = config.PLAYTIME_LISTS || [];
+            
+            // Migrate old schema
+            if (config.PLAYTIME_LIST_CHANNEL_ID && config.PLAYTIME_LIST_MESSAGE_ID && lists.length === 0) {
+                let defaultCode = 'unknown';
+                if (servers.length > 0) defaultCode = servers[0];
+                lists.push({
+                    code: defaultCode,
+                    channelId: config.PLAYTIME_LIST_CHANNEL_ID,
+                    messageId: config.PLAYTIME_LIST_MESSAGE_ID
+                });
+            }
+
+            // Filter out existing list for this code
+            lists = lists.filter(l => l.code !== code);
+
+            // Add new config
+            lists.push({
+                code: code,
+                channelId: channel.id,
+                messageId: msg.id
+            });
+
             await db.update(
                 { guildId: interaction.guild.id },
-                { $set: { PLAYTIME_LIST_CHANNEL_ID: channel.id, PLAYTIME_LIST_MESSAGE_ID: msg.id } }
+                { $set: { PLAYTIME_LISTS: lists } }
             );
 
-            await interaction.editReply(`✅ Setup complete! The live list has been posted in ${channel}.`);
+            await interaction.editReply(`✅ Setup complete! The live playtime list for server **${code}** has been posted in ${channel}.`);
             await updateList(interaction.client, interaction.guild.id);
         }
 
-        else if (sub === 'add') {
-            const user = interaction.options.getUser('user');
+        else if (sub === 'role') {
+            const action = interaction.options.getString('action');
             
-            let tracked = config.PLAYTIME_TRACKED_MEMBERS || [];
-            if (tracked.includes(user.id)) {
-                return interaction.editReply(`❌ **${user.username}** is already on the tracking list!`);
+            if (action === 'set') {
+                const role = interaction.options.getRole('role');
+                if (!role) {
+                    return interaction.editReply('❌ You must specify a role when action is "Set Role".');
+                }
+
+                await db.update(
+                    { guildId: interaction.guild.id },
+                    { $set: { PLAYTIME_ROLE_ID: role.id } }
+                );
+
+                await updateList(interaction.client, interaction.guild.id);
+                await interaction.editReply(`✅ Successfully set the playtime tracked role to **${role.name}** (${role}). All members with this role will now be tracked automatically!`);
+            } 
+            else if (action === 'remove') {
+                await db.update(
+                    { guildId: interaction.guild.id },
+                    { $unset: { PLAYTIME_ROLE_ID: true } }
+                );
+
+                await updateList(interaction.client, interaction.guild.id);
+                await interaction.editReply('✅ Removed the playtime tracked role. The bot will no longer track players by role.');
             }
-
-            tracked.push(user.id);
-            await db.update(
-                { guildId: interaction.guild.id },
-                { $set: { PLAYTIME_TRACKED_MEMBERS: tracked } }
-            );
-
-            await updateList(interaction.client, interaction.guild.id);
-            await interaction.editReply(`✅ **${user.username}** has been added to the Live Playtime List!`);
-        }
-
-        else if (sub === 'remove') {
-            const user = interaction.options.getUser('user');
-            
-            let tracked = config.PLAYTIME_TRACKED_MEMBERS || [];
-            if (!tracked.includes(user.id)) {
-                return interaction.editReply(`❌ **${user.username}** is not on the tracking list!`);
-            }
-
-            tracked = tracked.filter(id => id !== user.id);
-            await db.update(
-                { guildId: interaction.guild.id },
-                { $set: { PLAYTIME_TRACKED_MEMBERS: tracked } }
-            );
-
-            await updateList(interaction.client, interaction.guild.id);
-            await interaction.editReply(`✅ **${user.username}** has been removed from the Live Playtime List!`);
         }
 
         else if (sub === 'update') {
-            if (!config.PLAYTIME_LIST_MESSAGE_ID) {
+            const lists = config.PLAYTIME_LISTS || [];
+            if (lists.length === 0 && !config.PLAYTIME_LIST_MESSAGE_ID) {
                 return interaction.editReply('❌ You have not setup a list yet. Run `/playtimelist setup` first.');
             }
             
             await updateList(interaction.client, interaction.guild.id);
-            await interaction.editReply('✅ The Live Playtime List has been manually updated!');
+            await interaction.editReply('✅ All Live Playtime Lists have been manually updated!');
         }
     }
 };
