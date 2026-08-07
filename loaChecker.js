@@ -36,7 +36,17 @@ const DEFAULT_ENDED_BY = "@[RS]-THE WALTER";
 
 async function checkExpiredLOAs(client) {
   if (!fs.existsSync(LOA_FILE)) return;
-  const loas = JSON.parse(fs.readFileSync(LOA_FILE));
+
+  let loas = {};
+  try {
+    const data = fs.readFileSync(LOA_FILE, "utf-8").trim();
+    if (data) {
+      loas = JSON.parse(data);
+    }
+  } catch (err) {
+    console.error("❌ Error parsing LOA file:", err.message);
+    return;
+  }
 
   const now = Date.now();
   for (const [userId, loa] of Object.entries(loas)) {

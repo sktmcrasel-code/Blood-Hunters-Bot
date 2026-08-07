@@ -145,8 +145,10 @@ module.exports = (client) => {
     // 📛 Nickname Change
     client.on("guildMemberUpdate", async (oldMember, newMember) => {
         try {
-            if (!oldMember.partial) await oldMember.fetch();
-            if (!newMember.partial) await newMember.fetch();
+            if (oldMember.partial) await oldMember.fetch().catch(() => null);
+            if (newMember.partial) await newMember.fetch().catch(() => null);
+            if (oldMember.partial || newMember.partial) return;
+
             if (oldMember.nickname !== newMember.nickname) {
                 const audit = await newMember.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberUpdate });
                 const entry = audit.entries.first();

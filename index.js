@@ -4,6 +4,14 @@
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
+
+// Global Crash Prevention
+process.on('unhandledRejection', error => {
+    console.error('Unhandled promise rejection:', error);
+});
+process.on('uncaughtException', error => {
+    console.error('Uncaught exception:', error);
+});
 const {
     Client,
     GatewayIntentBits,
@@ -61,25 +69,10 @@ for (const file of commandFiles) {
 }
 
 // ===========================
-// REGISTER SLASH COMMANDS
+// ===========================
+// REST CLIENT SETUP
 // ===========================
 const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
-
-(async () => {
-    try {
-        console.log("⏳ Registering slash commands...");
-        const commands = client.commands.map(cmd => cmd.data.toJSON());
-
-        await rest.put(
-            Routes.applicationCommands(process.env.CLIENT_ID),
-            { body: commands }
-        );
-
-        console.log("✅ Slash commands registered.");
-    } catch (err) {
-        console.error("❌ Slash register error:", err);
-    }
-})();
 
 // ===========================
 // INTERACTION HANDLER
@@ -93,11 +86,28 @@ client.on("interactionCreate", async interaction => {
             await command.execute(interaction, client);
         } catch (err) {
             console.error(err);
-            if (interaction.replied || interaction.deferred) {
-                interaction.editReply({ content: "❌ Error executing command." });
-            } else {
-                interaction.reply({ content: "❌ Error executing command.", ephemeral: true });
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.editReply({ content: "❌ Error executing command." }).catch(() => null);
+                } else {
+                    await interaction.reply({ content: "❌ Error executing command.", ephemeral: true }).catch(() => null);
+                }
+            } catch (replyError) {
+                console.error("Failed to send error reply to interaction:", replyError);
             }
+        }
+    }
+
+    if (interaction.isAutocomplete()) {
+        const command = client.commands.get(interaction.commandName);
+        if (!command) return;
+
+        try {
+            if (command.autocomplete) {
+                await command.autocomplete(interaction, client);
+            }
+        } catch (err) {
+            console.error(`❌ Autocomplete error for ${interaction.commandName}:`, err);
         }
     }
 
@@ -247,6 +257,30 @@ client.on("guildMemberAdd", async member => {
 });
 
 // ===========================
+// MEMBER UPDATE (ROLE CHANGE DETECTION FOR PLAYTIME)
+// ===========================
+client.on("guildMemberUpdate", async (oldMember, newMember) => {
+    try {
+        const db = require("./utils/db");
+        const { updateList } = require("./utils/playtimeListUpdater");
+        
+        const config = await db.findOne({ guildId: newMember.guild.id });
+        if (!config || !config.PLAYTIME_ROLE_ID) return;
+        
+        const roleId = config.PLAYTIME_ROLE_ID;
+        const hadRole = oldMember.roles.cache.has(roleId);
+        const hasRole = newMember.roles.cache.has(roleId);
+        
+        if (hadRole !== hasRole) {
+            console.log(`🔔 Role changed for ${newMember.user.tag}. Re-evaluating playtime list...`);
+            updateList(newMember.client, newMember.guild.id).catch(() => {});
+        }
+    } catch (err) {
+        console.error("Error in guildMemberUpdate listener:", err);
+    }
+});
+
+// ===========================
 // MEMBER LEAVE
 // ===========================
 client.on("guildMemberRemove", async member => {
@@ -305,6 +339,29 @@ client.once("ready", async () => {
     console.log(`🤖 Logged in as ${client.user.tag}`);
     client.user.setActivity("BLOOD HUNTERS", { type: 0 });
 
+    // Register slash commands automatically using bot client ID
+    try {
+        console.log("⏳ Registering slash commands...");
+        const commands = client.commands.map(cmd => cmd.data.toJSON());
+        await rest.put(
+            Routes.applicationCommands(client.user.id),
+            { body: commands }
+        );
+        console.log("✅ Slash commands registered successfully!");
+    } catch (err) {
+        console.error("❌ Slash register error:", err);
+    }
+
+    // Cache all guild members for quick role tracking lookup
+    for (const guild of client.guilds.cache.values()) {
+        try {
+            await guild.members.fetch();
+            console.log(`👥 Cached all members for guild: ${guild.name}`);
+        } catch (e) {
+            console.warn(`⚠️ Could not cache members for guild ${guild.name}:`, e.message);
+        }
+    }
+
     // Cache initial invites
     for (const guild of client.guilds.cache.values()) {
         try {
@@ -336,6 +393,7 @@ client.once("ready", async () => {
     require("./utils/playtimeTracker").init(client);
     require("./utils/playtimeListUpdater").init(client);
     require("./utils/cfxListUpdater").init(client);
+    require("./utils/playtimeAnnouncer").init(client);
 
     // Dashboard
     try {
@@ -343,7 +401,7 @@ client.once("ready", async () => {
         console.log("-----------------------------------------");
         console.log("🚀 BOT & DASHBOARD ARE READY!");
         console.log("🤖 Bot: " + client.user.tag);
-        console.log("🌐 Dashboard: http://localhost:3000");
+        console.log("🌐 Dashboard: http://localhost:" + (process.env.PORT || process.env.DASHBOARD_PORT || 3000));
         console.log("-----------------------------------------");
     } catch (err) {
         console.error("❌ Dashboard start error:", err);
