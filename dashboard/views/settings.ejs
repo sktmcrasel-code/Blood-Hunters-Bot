@@ -34,6 +34,7 @@
                 <a href="#administration"><i class="fas fa-user-tie"></i> <span>Administration</span></a>
                 <a href="#staff"><i class="fas fa-user-shield"></i> <span>Staff & Perms</span></a>
                 <a href="#ranks"><i class="fas fa-crown"></i> <span>HUNTERS Ranks</span></a>
+                <a href="#playtime"><i class="fas fa-stopwatch"></i> <span>Playtime Info</span></a>
                 <a href="#emojis"><i class="fas fa-smile"></i> <span>Visuals (Emojis)</span></a>
             </nav>
             <div class="sidebar-footer">
@@ -54,8 +55,11 @@
             </header>
 
             <% if (locals.success) { %>
-                <div class="alert success">✅ All intelligence modules updated successfully!</div>
-                <% } %>
+                <div class="alert alert-success"><i class="fas fa-check-circle"></i> All intelligence modules updated successfully!</div>
+            <% } %>
+            <% if (locals.error) { %>
+                <div class="alert alert-error"><i class="fas fa-exclamation-triangle"></i> Failed to save settings. Please check the logs.</div>
+            <% } %>
 
                     <form id="settings-form" action="/settings/<%= guild.id %>" method="POST">
 
@@ -362,6 +366,20 @@
                                         <div class="input-group"><label>Mafia Boss</label><select
                                                 name="RANK_MAFIA_ROLE_ID"><%- rlOpt(config.RANK_MAFIA_ROLE_ID)
                                                     %></select></div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- ⏱️ PLAYTIME INTELLIGENCE -->
+                            <section id="playtime" class="settings-section">
+                                <div class="section-card">
+                                    <h2><i class="fas fa-stopwatch"></i> Playtime Intelligence</h2>
+                                    <div class="input-grid">
+                                        <div class="input-group">
+                                            <label>Playtime Announcement Channel</label>
+                                            <select name="PLAYTIME_ANNOUNCE_CHANNEL_ID"><%- chOpt(config.PLAYTIME_ANNOUNCE_CHANNEL_ID) %></select>
+                                            <p class="hint">Channel for daily, weekly, and monthly MVP top list announcements</p>
+                                        </div>
                                     </div>
                                 </div>
                             </section>
