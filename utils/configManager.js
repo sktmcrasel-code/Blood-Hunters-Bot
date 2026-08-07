@@ -38,6 +38,7 @@ async function getConfig(guildId) {
                 INTERACTION_LOG_CHANNEL_ID: "",
                 PLAYTIME_LIST_CHANNEL_ID: "",
                 PLAYTIME_LIST_MESSAGE_ID: "",
+                PLAYTIME_ANNOUNCE_CHANNEL_ID: "",
                 PLAYTIME_TRACKED_MEMBERS: [],
                 CFX_PLAYER_LIST_CHANNEL_ID: "",
                 CFX_PLAYER_LIST_MESSAGE_ID: "",

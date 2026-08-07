@@ -1,8 +1,11 @@
 // Helper functions to check time periods
 function isSameDay(d1, d2) {
-    return d1.getFullYear() === d2.getFullYear() &&
-           d1.getMonth() === d2.getMonth() &&
-           d1.getDate() === d2.getDate();
+    const offset = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+    const adjustedD1 = new Date(d1.getTime() - offset);
+    const adjustedD2 = new Date(d2.getTime() - offset);
+    return adjustedD1.getFullYear() === adjustedD2.getFullYear() &&
+           adjustedD1.getMonth() === adjustedD2.getMonth() &&
+           adjustedD1.getDate() === adjustedD2.getDate();
 }
 
 function isSameMonth(d1, d2) {
