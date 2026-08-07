@@ -19,9 +19,28 @@ module.exports = async (interaction, client) => {
         await command.execute(interaction, client);
       } catch (err) {
         console.error(`❌ Error running command ${interaction.commandName}:`, err);
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: "⚠️ Command failed.", ephemeral: true });
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({ content: "⚠️ Command execution failed." }).catch(() => {});
+        } else {
+          await interaction.reply({ content: "⚠️ Command failed.", ephemeral: true }).catch(() => {});
         }
+      }
+      return;
+    }
+
+    // =========================================================
+    // AUTOCOMPLETE HANDLER
+    // =========================================================
+    if (interaction.isAutocomplete()) {
+      const command = client.commands.get(interaction.commandName);
+      if (!command) return;
+
+      try {
+        if (command.autocomplete) {
+          await command.autocomplete(interaction, client);
+        }
+      } catch (err) {
+        console.error(`❌ Error running autocomplete for ${interaction.commandName}:`, err);
       }
       return;
     }
