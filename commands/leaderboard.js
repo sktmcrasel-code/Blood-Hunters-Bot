@@ -102,9 +102,10 @@ module.exports = {
                 }
 
                 // Include active session playtime if online
-                if (activeSessions.has(userId)) {
-                    const session = activeSessions.get(userId);
-                    if (session.guildId === interaction.guild.id && (!codeOption || session.serverCode === codeOption)) {
+                const sessionKey = `${interaction.guild.id}-${userId}`;
+                if (activeSessions.has(sessionKey)) {
+                    const session = activeSessions.get(sessionKey);
+                    if (!codeOption || session.serverCode === codeOption) {
                         const sessionDuration = Date.now() - (session.sessionStart || session.startTime || Date.now());
                         daily += sessionDuration;
                         weekly += sessionDuration;

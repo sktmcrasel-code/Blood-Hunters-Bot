@@ -72,9 +72,10 @@ module.exports = {
 
             let statusText = "🔴 Currently Offline / Not Playing";
 
-            if (activeSessions.has(targetUser.id)) {
-                const session = activeSessions.get(targetUser.id);
-                if (session.guildId === interaction.guild.id && (!codeOption || session.serverCode === codeOption)) {
+            const sessionKey = `${interaction.guild.id}-${targetUser.id}`;
+            if (activeSessions.has(sessionKey)) {
+                const session = activeSessions.get(sessionKey);
+                if (!codeOption || session.serverCode === codeOption) {
                     const activeDuration = Date.now() - (session.sessionStart || session.startTime || Date.now());
                     monthly += activeDuration;
                     

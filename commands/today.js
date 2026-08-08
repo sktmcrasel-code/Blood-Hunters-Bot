@@ -73,9 +73,10 @@ module.exports = {
             let statusText = "🔴 Currently Offline / Not Playing";
             let currentSessionDuration = 0;
 
-            if (activeSessions.has(targetUser.id)) {
-                const session = activeSessions.get(targetUser.id);
-                if (session.guildId === interaction.guild.id && (!codeOption || session.serverCode === codeOption)) {
+            const sessionKey = `${interaction.guild.id}-${targetUser.id}`;
+            if (activeSessions.has(sessionKey)) {
+                const session = activeSessions.get(sessionKey);
+                if (!codeOption || session.serverCode === codeOption) {
                     currentSessionDuration = Date.now() - (session.sessionStart || session.startTime || Date.now());
                     daily += currentSessionDuration;
                     

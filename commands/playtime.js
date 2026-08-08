@@ -99,10 +99,10 @@ module.exports = {
             let activeDuration = 0;
             let isOnline = false;
 
-            // Check for active session
-            if (activeSessions.has(targetUser.id)) {
-                const session = activeSessions.get(targetUser.id);
-                if (session.guildId === interaction.guild.id && (!codeOption || session.serverCode === codeOption)) {
+            const sessionKey = `${interaction.guild.id}-${targetUser.id}`;
+            if (activeSessions.has(sessionKey)) {
+                const session = activeSessions.get(sessionKey);
+                if (!codeOption || session.serverCode === codeOption) {
                     isOnline = true;
                     activeDuration = Date.now() - (session.sessionStart || session.startTime || Date.now());
                     daily += activeDuration;
