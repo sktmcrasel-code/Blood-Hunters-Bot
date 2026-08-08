@@ -78,9 +78,10 @@ async function updateList(client, guildId) {
 
                     let isPlaying = false;
                     let sessionDuration = 0;
-                    if (activeSessions.has(userId)) {
-                        const session = activeSessions.get(userId);
-                        if (session.guildId === guildId && session.serverCode === code) {
+                    const sessionKey = `${guildId}-${userId}`;
+                    if (activeSessions.has(sessionKey)) {
+                        const session = activeSessions.get(sessionKey);
+                        if (session.serverCode === code) {
                             isPlaying = true;
                             sessionDuration = Date.now() - (session.sessionStart || Date.now());
                             daily += sessionDuration;

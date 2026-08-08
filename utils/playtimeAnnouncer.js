@@ -55,15 +55,14 @@ async function announceTopPlayers(client, guildId, timeframe = 'daily', refDate 
             }
 
             // Include active session playtime if online
-            if (activeSessions.has(userId)) {
-                const session = activeSessions.get(userId);
-                if (session.guildId === guildId) {
-                    const sessionDuration = Date.now() - (session.sessionStart || session.startTime || Date.now());
-                    daily += sessionDuration;
-                    weekly += sessionDuration;
-                    monthly += sessionDuration;
-                    total += sessionDuration;
-                }
+            const sessionKey = `${guildId}-${userId}`;
+            if (activeSessions.has(sessionKey)) {
+                const session = activeSessions.get(sessionKey);
+                const sessionDuration = Date.now() - (session.sessionStart || session.startTime || Date.now());
+                daily += sessionDuration;
+                weekly += sessionDuration;
+                monthly += sessionDuration;
+                total += sessionDuration;
             }
 
             let activeTimeframePlaytime = 0;

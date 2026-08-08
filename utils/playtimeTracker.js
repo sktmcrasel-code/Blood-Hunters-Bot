@@ -200,14 +200,15 @@ async function startSessionLog(userId, inGameName, guildId, client, serverCode, 
 }
 
 async function endSession(userId, guildId, client) {
-    if (!activeSessions.has(userId)) return;
-    const sessionData = activeSessions.get(userId);
+    const sessionKey = `${guildId}-${userId}`;
+    if (!activeSessions.has(sessionKey)) return;
+    const sessionData = activeSessions.get(sessionKey);
     
     const now = Date.now();
     const finalIncremental = now - (sessionData.lastSaved || sessionData.sessionStart);
     const totalSessionDurationMs = now - sessionData.sessionStart;
     
-    activeSessions.delete(userId);
+    activeSessions.delete(sessionKey);
 
     if (totalSessionDurationMs < 10000) return; // Ignore tiny sessions under 10s
 
@@ -263,10 +264,10 @@ module.exports = {
         // Continuous incremental saver (every 1 minute)
         setInterval(async () => {
             const now = Date.now();
-            for (const [userId, session] of activeSessions.entries()) {
+            for (const [sessionKey, session] of activeSessions.entries()) {
                 const durationMs = now - (session.lastSaved || session.sessionStart);
                 if (durationMs >= 60000) {
-                    await savePlaytimeToDb(userId, session.guildId, durationMs, session.serverCode);
+                    await savePlaytimeToDb(session.userId, session.guildId, durationMs, session.serverCode);
                     session.lastSaved = now;
                 }
             }
@@ -344,9 +345,11 @@ module.exports = {
                             
                             if (isOnline) {
                                 currentOnlineUsers.add(userId);
-                                if (!activeSessions.has(userId)) {
+                                const sessionKey = `${guildId}-${userId}`;
+                                if (!activeSessions.has(sessionKey)) {
                                     const now = Date.now();
-                                    activeSessions.set(userId, { 
+                                    activeSessions.set(sessionKey, { 
+                                        userId: userId,
                                         sessionStart: now, 
                                         lastSaved: now, 
                                         guildId: guildId, 
@@ -357,7 +360,7 @@ module.exports = {
                                     });
                                     await startSessionLog(userId, detectedName, guildId, client, cfxCode, cleanHostname);
                                 } else {
-                                    const session = activeSessions.get(userId);
+                                    const session = activeSessions.get(sessionKey);
                                     session.source = 'cfx';
                                     session.serverCode = cfxCode;
                                     session.serverName = cleanHostname; // update server name if they moved servers
@@ -371,8 +374,9 @@ module.exports = {
                     
                     // After checking ALL servers for this guild, handle disconnects
                     for (const userId of allUserIdsToTrack) {
-                        if (!currentOnlineUsers.has(userId) && activeSessions.has(userId)) {
-                            const session = activeSessions.get(userId);
+                        const sessionKey = `${guildId}-${userId}`;
+                        if (!currentOnlineUsers.has(userId) && activeSessions.has(sessionKey)) {
+                            const session = activeSessions.get(sessionKey);
                             if (session.source === 'cfx' && session.guildId === guildId) {
                                 // Disconnected from server
                                 await endSession(userId, guildId, client);
