@@ -4,6 +4,7 @@ const db = require('./db');
 const { EmbedBuilder } = require('discord.js');
 const { getConfig } = require('./configManager');
 const timeHelpers = require('./timeHelpers');
+const sessionDb = require('./sessionDb');
 
 // Store active play sessions in memory
 // Map of userId -> { sessionStart, lastSaved, guildId, source, inGameName }
@@ -199,16 +200,17 @@ async function startSessionLog(userId, inGameName, guildId, client, serverCode, 
     }
 }
 
-async function endSession(userId, guildId, client) {
+async function endSession(userId, guildId, client, customEndTime = null) {
     const sessionKey = `${guildId}-${userId}`;
     if (!activeSessions.has(sessionKey)) return;
     const sessionData = activeSessions.get(sessionKey);
     
-    const now = Date.now();
-    const finalIncremental = now - (sessionData.lastSaved || sessionData.sessionStart);
-    const totalSessionDurationMs = now - sessionData.sessionStart;
+    const endTime = customEndTime || Date.now();
+    const finalIncremental = endTime - (sessionData.lastSaved || sessionData.sessionStart);
+    const totalSessionDurationMs = endTime - sessionData.sessionStart;
     
     activeSessions.delete(sessionKey);
+    await sessionDb.remove({ _id: sessionKey });
 
     if (totalSessionDurationMs < 10000) return; // Ignore tiny sessions under 10s
 
@@ -260,7 +262,23 @@ async function endSession(userId, guildId, client) {
 module.exports = {
     activeSessions,
     fetchCFXServerData,
-    init: (client) => {
+    init: async (client) => {
+        // Restore active sessions from database
+        try {
+            const savedSessions = await sessionDb.find({});
+            const now = Date.now();
+            for (const s of savedSessions) {
+                // If bot was offline for more than 3 minutes, end session using s.lastSaved
+                if (now - s.lastSaved > 180000) {
+                    await endSession(s.userId, s.guildId, client, s.lastSaved);
+                } else {
+                    activeSessions.set(s._id, s);
+                }
+            }
+        } catch (e) {
+            console.error("Error restoring saved sessions:", e);
+        }
+
         // Continuous incremental saver (every 1 minute)
         setInterval(async () => {
             const now = Date.now();
@@ -269,6 +287,7 @@ module.exports = {
                 if (durationMs >= 60000) {
                     await savePlaytimeToDb(session.userId, session.guildId, durationMs, session.serverCode);
                     session.lastSaved = now;
+                    await sessionDb.update({ _id: sessionKey }, { $set: { lastSaved: now } });
                 }
             }
         }, 60000);
@@ -288,12 +307,15 @@ module.exports = {
                     
                     const { getTrackedMembers } = require('./playtimeHelpers');
                     const trackedMembers = await getTrackedMembers(guild, config);
-                    const linkedUsers = await cfxDb.find({ guildId: guildId });
                     
-                    // Combine all users to check (tracked members list + linked users)
+                    // Fetch global linked users and filter by members of this guild
+                    const linkedUsers = await cfxDb.find({});
+                    const guildLinkedUsers = linkedUsers.filter(u => guild.members.cache.has(u.userId));
+                    
+                    // Combine all users to check (tracked members list + guild linked users)
                     const allUserIdsToTrack = new Set([
                         ...trackedMembers,
-                        ...linkedUsers.map(u => u.userId)
+                        ...guildLinkedUsers.map(u => u.userId)
                     ]);
                     
                     const linkedMap = new Map();
@@ -303,10 +325,12 @@ module.exports = {
 
                     // Keep track of who is online across ANY of the guild's servers
                     const currentOnlineUsers = new Set();
+                    const successfullyFetchedServers = new Set();
                     
                     for (const cfxCode of servers) {
                         const serverData = await fetchCFXServerData(cfxCode);
                         if (!serverData || !serverData.players) continue;
+                        successfullyFetchedServers.add(cfxCode);
                         
                         const players = serverData.players || [];
                         const cleanHostname = serverData.hostname ? serverData.hostname.substring(0, 30).replace(/\^([0-9]|\~[a-z])/gi, "").trim() : cfxCode;
@@ -348,7 +372,7 @@ module.exports = {
                                 const sessionKey = `${guildId}-${userId}`;
                                 if (!activeSessions.has(sessionKey)) {
                                     const now = Date.now();
-                                    activeSessions.set(sessionKey, { 
+                                    const sessionData = { 
                                         userId: userId,
                                         sessionStart: now, 
                                         lastSaved: now, 
@@ -357,7 +381,9 @@ module.exports = {
                                         inGameName: detectedName,
                                         serverCode: cfxCode,
                                         serverName: cleanHostname
-                                    });
+                                    };
+                                    activeSessions.set(sessionKey, sessionData);
+                                    await sessionDb.update({ _id: sessionKey }, sessionData, { upsert: true });
                                     await startSessionLog(userId, detectedName, guildId, client, cfxCode, cleanHostname);
                                 } else {
                                     const session = activeSessions.get(sessionKey);
@@ -367,6 +393,12 @@ module.exports = {
                                     if (!session.inGameName || session.inGameName === 'FiveM Player') {
                                         session.inGameName = detectedName;
                                     }
+                                    await sessionDb.update({ _id: sessionKey }, { $set: { 
+                                        source: 'cfx',
+                                        serverCode: cfxCode,
+                                        serverName: cleanHostname,
+                                        inGameName: session.inGameName
+                                    } });
                                 }
                             }
                         }
@@ -375,11 +407,13 @@ module.exports = {
                     // After checking ALL servers for this guild, handle disconnects
                     for (const userId of allUserIdsToTrack) {
                         const sessionKey = `${guildId}-${userId}`;
-                        if (!currentOnlineUsers.has(userId) && activeSessions.has(sessionKey)) {
+                        if (activeSessions.has(sessionKey)) {
                             const session = activeSessions.get(sessionKey);
                             if (session.source === 'cfx' && session.guildId === guildId) {
-                                // Disconnected from server
-                                await endSession(userId, guildId, client);
+                                // Only disconnect if the server they were on was successfully fetched and they are not online
+                                if (successfullyFetchedServers.has(session.serverCode) && !currentOnlineUsers.has(userId)) {
+                                    await endSession(userId, guildId, client);
+                                }
                             }
                         }
                     }

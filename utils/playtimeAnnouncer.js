@@ -187,17 +187,20 @@ module.exports = {
             for (const guildId of guildIds) {
                 await announceTopPlayers(client, guildId, 'daily', refDate);
             }
+        }, {
+            timezone: "Asia/Dhaka"
         });
 
-        // Weekly Top 5 on Friday at night 12:00 AM (calendar-wise Saturday 00:00)
-        cron.schedule('0 0 * * 6', async () => {
+        // Weekly Top 5 on Friday at 12:00 PM (noon)
+        cron.schedule('0 12 * * 5', async () => {
             console.log("📢 Triggering Weekly Top 5 Playtime Announcement...");
-            // Use 1 minute prior (Friday 23:59) as reference date to guarantee correct week evaluation
-            const refDate = new Date(Date.now() - 60000);
+            const refDate = new Date();
             const guildIds = client.guilds.cache.map(g => g.id);
             for (const guildId of guildIds) {
                 await announceTopPlayers(client, guildId, 'weekly', refDate);
             }
+        }, {
+            timezone: "Asia/Dhaka"
         });
 
         // Monthly Top 5 on end of month at night 12:00 AM (calendar-wise 1st of next month at 00:00)
@@ -209,6 +212,8 @@ module.exports = {
             for (const guildId of guildIds) {
                 await announceTopPlayers(client, guildId, 'monthly', refDate);
             }
+        }, {
+            timezone: "Asia/Dhaka"
         });
     }
 };

@@ -26,7 +26,7 @@ async function updateList(client, guildId) {
         if (!guild) return;
 
         // Fetch linked users to show Discord tags (reused for all lists)
-        const linkedUsers = await cfxDb.find({ guildId });
+        const linkedUsers = await cfxDb.find({});
         const linkedNamesMap = new Map();
         for (const u of linkedUsers) {
             if (u.inGameName) linkedNamesMap.set(u.inGameName.toLowerCase(), u.userId);
